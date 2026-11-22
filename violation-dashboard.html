@@ -1,0 +1,448 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>위반건축물 관리현황</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Layout: 관리대장 업로드 → 연도별 요약표 → 행정동별 표(7열 격자) → 클릭한 칸의 건별 목록 */
+:root{
+  --bg:#f5f7fb; --surface:#ffffff; --band:#e9eef8; --band2:#dfe6f4;
+  --ink:#1b2333; --muted:#5d6779; --line:#d3dbe9;
+  --accent:#3563c9; --accent-ink:#ffffff; --accent-soft:#dbe5fa;
+  --ok:#1f8a5b; --ok-soft:#dcf2e7; --warn:#b4570b; --warn-soft:#fbe8d6; --run:#3563c9;
+  --font:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11151d; --surface:#181e29; --band:#1f2735; --band2:#253043;
+  --ink:#e6eaf2; --muted:#9aa4b6; --line:#2e394c;
+  --accent:#6e95ec; --accent-ink:#0d1320; --accent-soft:#22314f;
+  --ok:#55c493; --ok-soft:#173528; --warn:#f0a35e; --warn-soft:#3a2716; --run:#8fb0f5;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11151d; --surface:#181e29; --band:#1f2735; --band2:#253043;
+  --ink:#e6eaf2; --muted:#9aa4b6; --line:#2e394c;
+  --accent:#6e95ec; --accent-ink:#0d1320; --accent-soft:#22314f;
+  --ok:#55c493; --ok-soft:#173528; --warn:#f0a35e; --warn-soft:#3a2716; --run:#8fb0f5;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:28px}
+h1{font-size:1.6rem;margin:0;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+h2{font-size:1.05rem;margin:0;font-weight:700}
+.sub{color:var(--muted);margin:4px 0 0}
+header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between}
+.section{display:flex;flex-direction:column;gap:12px;min-width:0}
+.section-head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between}
+
+/* upload */
+.drop{border:1.5px dashed var(--line);background:var(--surface);border-radius:10px;padding:18px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop p{margin:0}
+.drop .hint{color:var(--muted);font-size:.86rem}
+.btn{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:7px;padding:8px 14px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:hover{filter:brightness(1.05)}
+.btn:focus-visible,.chip:focus-visible,td.num button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.files{display:flex;flex-wrap:wrap;gap:8px}
+.file{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 12px;font-size:.86rem}
+.file b{font-family:var(--mono);font-weight:500}
+.file button{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;padding:2px 6px;border-radius:999px}
+.file button:hover{background:var(--band);color:var(--ink)}
+.msg{font-size:.86rem;color:var(--muted)}
+.msg.err{color:var(--warn)}
+
+/* settings */
+.settings{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;font-size:.9rem;color:var(--muted)}
+.settings label{display:inline-flex;gap:6px;align-items:center}
+select,input[type=number],input[type=search]{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+input[type=number]{width:64px}
+
+/* tables */
+.scroll{overflow-x:auto;border-radius:6px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.year-table{min-width:760px;background:var(--surface)}
+.year-table th,.year-table td{border:2px solid var(--bg);padding:0;text-align:left}
+.year-table thead th{background:var(--accent);color:var(--accent-ink);font-weight:700;padding:8px 12px;font-size:1rem}
+.year-table thead th:first-child{width:120px;line-height:1.25}
+.year-table tbody th{font-weight:500;padding:8px 12px;white-space:nowrap}
+.year-table tbody tr:nth-child(odd) > *{background:var(--band2)}
+.year-table tbody tr:nth-child(even) > *{background:var(--band)}
+.year-table th.total,.year-table td.total{border-left:3px solid var(--accent)}
+
+.dong-table{min-width:760px;table-layout:fixed}
+.dong-table th,.dong-table td{text-align:left;padding:0}
+.dong-table thead th{font-weight:700;font-size:1rem;padding:9px 12px;border-top:1.5px solid var(--line);border-bottom:1.5px solid var(--line)}
+.dong-table thead th:first-child{width:12%}
+.dong-table tbody th{font-weight:500;padding:8px 12px;white-space:nowrap}
+.dong-table tbody tr:nth-child(odd) > *{background:var(--band)}
+.dong-table tbody tr:last-child > *{border-bottom:1.5px solid var(--line)}
+.dong-table tbody td{background:transparent}
+.dongs{display:flex;flex-direction:column;gap:12px}
+
+td.num button{all:unset;box-sizing:border-box;display:block;width:100%;padding:8px 12px;cursor:pointer;font-family:var(--mono);font-size:.98rem}
+td.num button:hover{background:var(--accent-soft)}
+td.num button.zero{color:var(--muted);opacity:.55}
+td.num button.sel{background:var(--accent);color:var(--accent-ink);opacity:1}
+tr.r-run th{color:var(--run)}
+tr.r-done th{color:var(--ok)}
+tr.r-late th{color:var(--warn)}
+tr.r-late td.num button:not(.zero):not(.sel){color:var(--warn);font-weight:600}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:inherit;font-size:.86rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:4px 12px;border-radius:999px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* detail */
+.detail{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.detail-table{min-width:880px;font-size:.88rem}
+.detail-table th{text-align:left;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+.detail-table td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.detail-table td.c{white-space:nowrap;font-family:var(--mono);font-size:.84rem}
+.detail-table td.v{max-width:360px}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.78rem;font-weight:600;white-space:nowrap}
+.pill.done{background:var(--ok-soft);color:var(--ok)}
+.pill.run{background:var(--accent-soft);color:var(--run)}
+.pill.late{background:var(--warn-soft);color:var(--warn)}
+.empty{color:var(--muted);padding:12px 0}
+.note{font-size:.84rem;color:var(--muted);margin:0}
+.warnbox{font-size:.86rem;background:var(--warn-soft);color:var(--warn);border-radius:8px;padding:10px 14px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>위반건축물 관리현황</h1>
+      <p class="sub">연도별 위반건축물 조치상황 엑셀을 올리면 연도·행정동별 진행, 종결, 기간경과 건수를 집계합니다.</p>
+    </div>
+  </header>
+
+  <section class="section" aria-label="엑셀 업로드">
+    <div class="drop" id="drop">
+      <div>
+        <p><strong>조치상황 엑셀(.xlsx) 올리기</strong></p>
+        <p class="hint">여러 파일·여러 시트를 한 번에 올릴 수 있습니다. 같은 연도를 다시 올리면 그 연도 자료를 새 파일로 바꿉니다. 파일은 이 브라우저 안에서만 읽습니다.</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="file" id="file" accept=".xlsx,.xls,.xlsm" multiple hidden>
+        <button class="btn primary" id="pick" type="button">파일 선택</button>
+        <button class="btn" id="clear" type="button">전체 삭제</button>
+      </div>
+    </div>
+    <div class="files" id="files"></div>
+    <div class="msg" id="msg" role="status"></div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>연도별 관리건수</h2>
+      <div class="settings">
+        <label for="lateBasis">기간경과 기준
+          <select id="lateBasis">
+            <option value="occur">발생일로부터</option>
+            <option value="action">최근 조치일로부터</option>
+          </select>
+        </label>
+        <label for="lateMonths"><input type="number" id="lateMonths" min="1" max="120" value="12"> 개월 넘게 미종결</label>
+      </div>
+    </div>
+    <div class="scroll"><table class="year-table" id="yearTable"></table></div>
+    <p class="note">연도는 시트 이름(예: 2020년위반건축물조치사항)으로 정합니다. 숫자를 누르면 아래에 해당 건 목록이 나옵니다.</p>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>행정동별 관리건수</h2>
+      <div class="chips" id="yearChips" role="group" aria-label="연도 선택"></div>
+    </div>
+    <div class="dongs" id="dongs"></div>
+    <div id="unmatched"></div>
+  </section>
+
+  <section class="detail" id="detail" aria-live="polite">
+    <div class="section-head">
+      <h2 id="detailTitle">건별 목록</h2>
+      <input type="search" id="q" placeholder="소재지·위반내용 검색" aria-label="목록 검색">
+    </div>
+    <div class="scroll" id="detailBody"><p class="empty">위 표의 숫자를 누르면 해당하는 건이 여기에 나옵니다.</p></div>
+  </section>
+</div>
+
+<script>
+(function(){
+'use strict';
+const STORE='vbm-records-v1', SETTINGS='vbm-settings-v1';
+const BASE_YEARS=[2018,2019,2020,2021,2022,2023,2024,2025,2026];
+const GROUPS=[
+  ['일도동','건입동','아라동','이도동','외도동','이호동','도두동'],
+  ['삼도동','연동','노형동','오라동','화북동','삼양동','봉개동'],
+  ['애월','한림','한경','조천','구좌','추자','우도'],
+];
+const EXTRA=['용담동','미분류'];
+const RULES=[
+  [/^일도/,'일도동'],[/^(이도|도남)/,'이도동'],[/^삼도/,'삼도동'],[/^용담/,'용담동'],
+  [/^건입/,'건입동'],[/^화북/,'화북동'],[/^(삼양|도련)/,'삼양동'],[/^(봉개|회천|용강)/,'봉개동'],
+  [/^(아라|영평|오등|월평)/,'아라동'],[/^오라/,'오라동'],[/^연동/,'연동'],[/^(노형|해안)/,'노형동'],
+  [/^(외도|내도|도평)/,'외도동'],[/^이호/,'이호동'],[/^도두/,'도두동'],
+  [/^애월/,'애월'],[/^한림/,'한림'],[/^한경/,'한경'],[/^조천/,'조천'],[/^구좌/,'구좌'],[/^추자/,'추자'],[/^우도/,'우도'],
+];
+const ACTION_HEADS=['사전통지','1차명령','2차명령','3차명령','부과일자','시정명령','재부과예고','재부과','표기일','해제일','철거','추인','완료일'];
+
+const $=id=>document.getElementById(id);
+let records=[];   // {year,no,dong,loc,lot,content,occur,lastAction,closed,status,note,file}
+let sources={};   // year -> file name
+let view={year:'all',sel:null};
+let settings={basis:'occur',months:12};
+
+function load(){
+  try{const r=JSON.parse(localStorage.getItem(STORE)||'null'); if(r){records=r.records||[];sources=r.sources||{};}}catch(e){}
+  try{const s=JSON.parse(localStorage.getItem(SETTINGS)||'null'); if(s) settings=Object.assign(settings,s);}catch(e){}
+}
+function save(){
+  try{localStorage.setItem(STORE,JSON.stringify({records,sources}));}catch(e){}
+  try{localStorage.setItem(SETTINGS,JSON.stringify(settings));}catch(e){}
+}
+
+const norm=v=>v==null?'':String(v).replace(/\s+/g,'');
+function toAdmin(raw){
+  let s=String(raw||'').replace(/\s+/g,' ').trim().replace(/^(제주특별자치도|제주도)\s*/,'').replace(/^제주시\s*/,'');
+  if(!s) return '미분류';
+  const first=s.split(' ')[0];
+  for(const [re,name] of RULES) if(re.test(first)) return name;
+  return '미분류';
+}
+function parseDate(v){
+  if(v==null||v==='') return null;
+  if(v instanceof Date && !isNaN(v)) return new Date(v.getFullYear(),v.getMonth(),v.getDate()).getTime();
+  const s=String(v).trim();
+  const m=s.match(/^(\d{2}|\d{4})\s*[.\-\/년]\s*(\d{1,2})\s*[.\-\/월]\s*(\d{1,2})/);
+  if(m){
+    let y=+m[1]; if(y<100) y+=2000;
+    const mo=+m[2], d=+m[3];
+    if(mo>=1&&mo<=12&&d>=1&&d<=31) return new Date(y,mo-1,d).getTime();
+  }
+  return null;
+}
+const fmt=t=>{if(t==null)return '';const d=new Date(t);return String(d.getFullYear()).slice(2)+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0');};
+
+function findHeader(rows){
+  for(let i=0;i<Math.min(rows.length,30);i++){
+    const r=rows[i]||[];
+    const names=r.map(norm);
+    if(names.includes('연번') && names.some(n=>n.startsWith('소재지'))) return i;
+  }
+  return -1;
+}
+function yearOf(text){const m=String(text||'').match(/(20\d{2})/);return m?+m[1]:null;}
+
+function parseSheet(ws,sheetName,fileName){
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
+  const h=findHeader(rows); if(h<0) return null;
+  const top=rows[h].map(norm), sub=(rows[h+1]||[]).map(norm);
+  const width=Math.max(top.length,sub.length);
+  // propagate merged main headers to the right
+  const main=[]; let last='';
+  for(let c=0;c<width;c++){ if(top[c]) last=top[c]; main[c]=top[c]||(sub[c]?last:''); }
+  const col=pred=>{for(let c=0;c<width;c++) if(pred(top[c]||'',sub[c]||'',main[c]||'')) return c; return -1;};
+  const cNo=col(t=>t==='연번');
+  const cLoc=col(t=>t.startsWith('소재지'));
+  const cOccur=col(t=>t.startsWith('발생일'));
+  const cClosed=col(t=>t.startsWith('종결여부'));
+  const cStatus=col(t=>t.startsWith('진행상황'));
+  const cContent=col(t=>t.startsWith('위반내용'));
+  const cNote=col(t=>t.startsWith('비고'));
+  const cDone=col(t=>t.startsWith('완료일'));
+  const actionCols=[];
+  for(let c=0;c<width;c++){ if(ACTION_HEADS.some(a=>(sub[c]||'').startsWith(a)||(top[c]||'').startsWith(a))) actionCols.push(c); }
+
+  let sheetYear=yearOf(sheetName);
+  if(!sheetYear) for(let i=0;i<h&&!sheetYear;i++) for(const v of rows[i]||[]){ if(yearOf(v)){sheetYear=yearOf(v);break;} }
+  if(!sheetYear) sheetYear=yearOf(fileName);
+
+  const out=[];
+  const start=sub.some(Boolean)?h+2:h+1;
+  for(let i=start;i<rows.length;i++){
+    const r=rows[i]||[];
+    const no=r[cNo];
+    if(no==null||no===''||isNaN(Number(no))) continue;
+    const occur=cOccur>=0?parseDate(r[cOccur]):null;
+    let lastAction=null;
+    for(const c of actionCols){const t=parseDate(r[c]); if(t!=null&&(lastAction==null||t>lastAction)) lastAction=t;}
+    const closedTxt=cClosed>=0?norm(r[cClosed]):'';
+    const statusTxt=cStatus>=0?norm(r[cStatus]):'';
+    const closed= closedTxt ? closedTxt==='종결' : statusTxt==='종결';
+    const year=sheetYear||(occur?new Date(occur).getFullYear():null);
+    if(!year) continue;
+    const loc=cLoc>=0&&r[cLoc]!=null?String(r[cLoc]).trim():'';
+    out.push({
+      year,no:Number(no),loc,dong:toAdmin(loc),
+      lot:cLoc>=0&&r[cLoc+1]!=null?String(r[cLoc+1]).trim():'',
+      content:cContent>=0&&r[cContent]!=null?String(r[cContent]).trim():'',
+      occur,lastAction,closed,
+      status:closedTxt==='일부종결'?'일부종결':(statusTxt||closedTxt||''),
+      done:cDone>=0?fmt(parseDate(r[cDone])):'',
+      note:cNote>=0&&r[cNote]!=null?String(r[cNote]).trim():'',
+      file:fileName
+    });
+  }
+  return out;
+}
+
+async function handleFiles(list){
+  const msg=$('msg'); msg.className='msg'; msg.textContent='읽는 중…';
+  const done=[], fails=[];
+  for(const f of list){
+    try{
+      const buf=await f.arrayBuffer();
+      const wb=XLSX.read(buf,{type:'array',cellDates:true});
+      const got=[];
+      for(const name of wb.SheetNames){const r=parseSheet(wb.Sheets[name],name,f.name); if(r&&r.length) got.push(...r);}
+      if(!got.length){fails.push(f.name);continue;}
+      const years=[...new Set(got.map(r=>r.year))];
+      records=records.filter(r=>!years.includes(r.year)).concat(got);
+      years.forEach(y=>sources[y]=f.name);
+      done.push(f.name+' ('+years.sort().join(', ')+'년 '+got.length+'건)');
+    }catch(e){fails.push(f.name);}
+  }
+  save(); render();
+  const parts=[];
+  if(done.length) parts.push('불러옴: '+done.join(' · '));
+  if(fails.length){parts.push('읽지 못함: '+fails.join(', ')+' — "연번"과 "소재지" 머리글이 있는 시트를 찾지 못했습니다.'); msg.className='msg err';}
+  msg.textContent=parts.join('  ');
+}
+
+const today=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();};
+function isLate(r){
+  if(r.closed) return false;
+  const base=settings.basis==='action'?(r.lastAction??r.occur):r.occur;
+  if(base==null) return false;
+  const lim=new Date(base); lim.setMonth(lim.getMonth()+Number(settings.months||12));
+  return lim.getTime()<today();
+}
+const METRICS=[
+  {key:'run',label:'진행건수',cls:'r-run',test:r=>!r.closed},
+  {key:'done',label:'종결건수',cls:'r-done',test:r=>r.closed},
+  {key:'late',label:'기간경과',cls:'r-late',test:isLate},
+];
+
+function cellBtn(n,selKey,title){
+  const sel=view.sel&&view.sel.key===selKey;
+  return `<td class="num"><button type="button" data-sel="${selKey}" class="${n?'':'zero'}${sel?' sel':''}" aria-label="${title} ${n}건">${n}</button></td>`;
+}
+function years(){
+  const ys=new Set(BASE_YEARS); records.forEach(r=>ys.add(r.year));
+  return [...ys].sort((a,b)=>a-b);
+}
+
+function renderFiles(){
+  const ys=Object.keys(sources).map(Number).filter(y=>records.some(r=>r.year===y)).sort();
+  $('files').innerHTML=ys.map(y=>`<span class="file"><b>${y}</b>${esc(sources[y])} · ${records.filter(r=>r.year===y).length}건<button type="button" data-rm="${y}" aria-label="${y}년 자료 삭제" title="삭제">×</button></span>`).join('');
+}
+function renderYearTable(){
+  const ys=years();
+  let h='<thead><tr><th scope="col">전체 관리<br>건수</th>'+ys.map(y=>`<th scope="col">${y}</th>`).join('')+'<th scope="col" class="total">합계</th></tr></thead><tbody>';
+  for(const m of METRICS){
+    h+=`<tr class="${m.cls}"><th scope="row">${m.label}</th>`;
+    let tot=0;
+    for(const y of ys){const n=records.filter(r=>r.year===y&&m.test(r)).length; tot+=n; h+=cellBtn(n,`y|${y}|${m.key}`,`${y}년 ${m.label}`);}
+    h+=cellBtn(tot,`y|all|${m.key}`,`전체 ${m.label}`).replace('<td class="num">','<td class="num total">')+'</tr>';
+  }
+  $('yearTable').innerHTML=h+'</tbody>';
+}
+function renderChips(){
+  const ys=[...new Set(records.map(r=>r.year))].sort();
+  if(view.year!=='all'&&!ys.includes(view.year)) view.year='all';
+  $('yearChips').innerHTML=[['all','전체 연도'],...ys.map(y=>[y,y+'년'])].map(([v,l])=>`<button type="button" class="chip" data-year="${v}" aria-pressed="${String(view.year)===String(v)}">${l}</button>`).join('');
+}
+function renderDongs(){
+  const pool=records.filter(r=>view.year==='all'||r.year===view.year);
+  const extra=EXTRA.filter(d=>d==='용담동'||pool.some(r=>r.dong===d));
+  const groups=[...GROUPS,extra];
+  $('dongs').innerHTML=groups.map((g,gi)=>{
+    const cols=[...g]; while(cols.length<7) cols.push('');
+    let h=`<div class="scroll"><table class="dong-table"><thead><tr><th scope="col">${gi===3?'기타':'행정동'}</th>`+cols.map(d=>`<th scope="col">${d}</th>`).join('')+'</tr></thead><tbody>';
+    for(const m of METRICS){
+      h+=`<tr class="${m.cls}"><th scope="row">${m.label}</th>`;
+      for(const d of cols){
+        if(!d){h+='<td></td>';continue;}
+        const n=pool.filter(r=>r.dong===d&&m.test(r)).length;
+        h+=cellBtn(n,`d|${view.year}|${d}|${m.key}`,`${d} ${m.label}`);
+      }
+      h+='</tr>';
+    }
+    return h+'</tbody></table></div>';
+  }).join('');
+  const um=[...new Set(pool.filter(r=>r.dong==='미분류'&&r.loc).map(r=>r.loc))];
+  $('unmatched').innerHTML=um.length?`<div class="warnbox">행정동을 정하지 못한 소재지: ${um.map(esc).join(', ')}</div>`:'';
+}
+function selected(){
+  if(!view.sel) return null;
+  const p=view.sel.key.split('|'), m=METRICS.find(x=>x.key===p[p.length-1]);
+  let rows, title;
+  if(p[0]==='y'){
+    rows=records.filter(r=>(p[1]==='all'||r.year===+p[1])&&m.test(r));
+    title=(p[1]==='all'?'전체 연도':p[1]+'년')+' · '+m.label;
+  }else{
+    rows=records.filter(r=>(p[1]==='all'||r.year===+p[1])&&r.dong===p[2]&&m.test(r));
+    title=(p[1]==='all'?'전체 연도':p[1]+'년')+' · '+p[2]+' · '+m.label;
+  }
+  return {rows,title};
+}
+function renderDetail(){
+  const s=selected();
+  if(!s){$('detailTitle').textContent='건별 목록';$('detailBody').innerHTML='<p class="empty">위 표의 숫자를 누르면 해당하는 건이 여기에 나옵니다.</p>';return;}
+  const q=$('q').value.trim();
+  let rows=s.rows;
+  if(q) rows=rows.filter(r=>(r.loc+' '+r.lot+' '+r.content+' '+r.note+' '+r.dong).includes(q));
+  rows=rows.slice().sort((a,b)=>a.year-b.year||a.no-b.no);
+  $('detailTitle').textContent=s.title+' — '+rows.length+'건';
+  if(!rows.length){$('detailBody').innerHTML='<p class="empty">해당하는 건이 없습니다.</p>';return;}
+  const t=today();
+  const basis=r=>settings.basis==='action'?(r.lastAction??r.occur):r.occur;
+  $('detailBody').innerHTML='<table class="detail-table"><thead><tr><th>연도</th><th>연번</th><th>행정동</th><th>소재지</th><th>위반내용</th><th>발생일</th><th>최근 조치일</th><th>상태</th><th>경과</th><th>비고</th></tr></thead><tbody>'+
+    rows.map(r=>{
+      const late=isLate(r);
+      const pill=r.closed?'<span class="pill done">종결</span>':`<span class="pill ${late?'late':'run'}">${esc(r.status||'진행')}</span>`;
+      const b=basis(r); const days=(!r.closed&&b!=null)?Math.floor((t-b)/864e5)+'일':'';
+      return `<tr><td class="c">${r.year}</td><td class="c">${r.no}</td><td>${esc(r.dong)}</td><td style="white-space:nowrap">${esc(r.loc)} ${esc(r.lot)}</td><td class="v">${esc(r.content)}</td><td class="c">${fmt(r.occur)}</td><td class="c">${fmt(r.lastAction)}</td><td>${pill}</td><td class="c">${days}</td><td class="v">${esc(r.note)}</td></tr>`;
+    }).join('')+'</tbody></table>';
+}
+function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function render(){renderFiles();renderYearTable();renderChips();renderDongs();renderDetail();}
+
+// events
+$('pick').onclick=()=>$('file').click();
+$('file').onchange=e=>{if(e.target.files.length) handleFiles([...e.target.files]); e.target.value='';};
+const drop=$('drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{const f=[...(e.dataTransfer?.files||[])]; if(f.length) handleFiles(f);});
+let clearArmed=false;
+$('clear').onclick=()=>{
+  if(!records.length) return;
+  if(!clearArmed){clearArmed=true;$('clear').textContent='한 번 더 누르면 삭제';setTimeout(()=>{clearArmed=false;$('clear').textContent='전체 삭제';},3000);return;}
+  clearArmed=false;$('clear').textContent='전체 삭제';
+  records=[];sources={};view.sel=null;save();render();$('msg').textContent='모든 자료를 지웠습니다.';
+};
+document.addEventListener('click',e=>{
+  const rm=e.target.closest('[data-rm]');
+  if(rm){const y=+rm.dataset.rm;records=records.filter(r=>r.year!==y);delete sources[y];view.sel=null;save();render();return;}
+  const c=e.target.closest('[data-year]');
+  if(c){view.year=c.dataset.year==='all'?'all':+c.dataset.year;view.sel=null;render();return;}
+  const b=e.target.closest('[data-sel]');
+  if(b){const k=b.dataset.sel;view.sel=(view.sel&&view.sel.key===k)?null:{key:k};render();
+    if(view.sel) $('detail').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});}
+});
+$('q').addEventListener('input',renderDetail);
+$('lateBasis').onchange=e=>{settings.basis=e.target.value;save();render();};
+$('lateMonths').oninput=e=>{const v=parseInt(e.target.value,10);if(v>0){settings.months=v;save();render();}};
+
+load();
+$('lateBasis').value=settings.basis; $('lateMonths').value=settings.months;
+if(typeof XLSX==='undefined'){$('msg').className='msg err';$('msg').textContent='엑셀 읽기 도구를 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침하세요.';}
+render();
+})();
+</script>
+</html>
