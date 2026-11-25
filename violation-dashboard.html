@@ -5,32 +5,36 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-/* Layout: 관리대장 업로드 → 연도별 요약표 → 행정동별 표(7열 격자) → 클릭한 칸의 건별 목록 */
+/* Layout: 관리대장 업로드 → 연도별 요약표 → 행정동별 표(7열 격자) → 건별 목록 → 건별 관리카드(기본정보 | 행정조치 현황 + 처리 흐름) */
 :root{
-  --bg:#f5f7fb; --surface:#ffffff; --band:#e9eef8; --band2:#dfe6f4;
-  --ink:#1b2333; --muted:#5d6779; --line:#d3dbe9;
+  --bg:#f5f7fb; --surface:#ffffff; --band:#e9eef8; --band2:#dfe6f4; --field:#eeeeee;
+  --ink:#1b2333; --muted:#5d6779; --line:#d3dbe9; --rule:#1b2333;
   --accent:#3563c9; --accent-ink:#ffffff; --accent-soft:#dbe5fa;
   --ok:#1f8a5b; --ok-soft:#dcf2e7; --warn:#b4570b; --warn-soft:#fbe8d6; --run:#3563c9;
+  --step:#cdeffb; --step-ink:#0e4f66;
   --font:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#11151d; --surface:#181e29; --band:#1f2735; --band2:#253043;
-  --ink:#e6eaf2; --muted:#9aa4b6; --line:#2e394c;
+  --bg:#11151d; --surface:#181e29; --band:#1f2735; --band2:#253043; --field:#1f2633;
+  --ink:#e6eaf2; --muted:#9aa4b6; --line:#2e394c; --rule:#9aa4b6;
   --accent:#6e95ec; --accent-ink:#0d1320; --accent-soft:#22314f;
   --ok:#55c493; --ok-soft:#173528; --warn:#f0a35e; --warn-soft:#3a2716; --run:#8fb0f5;
+  --step:#163a47; --step-ink:#a6e3f5;
   color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#11151d; --surface:#181e29; --band:#1f2735; --band2:#253043;
-  --ink:#e6eaf2; --muted:#9aa4b6; --line:#2e394c;
+  --bg:#11151d; --surface:#181e29; --band:#1f2735; --band2:#253043; --field:#1f2633;
+  --ink:#e6eaf2; --muted:#9aa4b6; --line:#2e394c; --rule:#9aa4b6;
   --accent:#6e95ec; --accent-ink:#0d1320; --accent-soft:#22314f;
   --ok:#55c493; --ok-soft:#173528; --warn:#f0a35e; --warn-soft:#3a2716; --run:#8fb0f5;
+  --step:#163a47; --step-ink:#a6e3f5;
   color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.5}
 .wrap{max-width:1180px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:28px}
 h1{font-size:1.6rem;margin:0;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
 h2{font-size:1.05rem;margin:0;font-weight:700}
+h3{font-size:1.15rem;margin:0;font-weight:500}
 .sub{color:var(--muted);margin:4px 0 0}
 header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between}
 .section{display:flex;flex-direction:column;gap:12px;min-width:0}
@@ -44,7 +48,7 @@ header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-con
 .btn{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:7px;padding:8px 14px;cursor:pointer}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .btn:hover{filter:brightness(1.05)}
-.btn:focus-visible,.chip:focus-visible,td.num button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .files{display:flex;flex-wrap:wrap;gap:8px}
 .file{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 12px;font-size:.86rem}
 .file b{font-family:var(--mono);font-weight:500}
@@ -56,7 +60,7 @@ header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-con
 /* settings */
 .settings{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;font-size:.9rem;color:var(--muted)}
 .settings label{display:inline-flex;gap:6px;align-items:center}
-select,input[type=number],input[type=search]{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+select,input[type=number],input[type=search],input[type=text]{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
 input[type=number]{width:64px}
 
 /* tables */
@@ -78,13 +82,13 @@ table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
 .dong-table tbody th{font-weight:500;padding:8px 12px;white-space:nowrap}
 .dong-table tbody tr:nth-child(odd) > *{background:var(--band)}
 .dong-table tbody tr:last-child > *{border-bottom:1.5px solid var(--line)}
-.dong-table tbody td{background:transparent}
 .dongs{display:flex;flex-direction:column;gap:12px}
 
 td.num button{all:unset;box-sizing:border-box;display:block;width:100%;padding:8px 12px;cursor:pointer;font-family:var(--mono);font-size:.98rem}
 td.num button:hover{background:var(--accent-soft)}
 td.num button.zero{color:var(--muted);opacity:.55}
 td.num button.sel{background:var(--accent);color:var(--accent-ink);opacity:1}
+td.num button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 tr.r-run th{color:var(--run)}
 tr.r-done th{color:var(--ok)}
 tr.r-late th{color:var(--warn)}
@@ -94,20 +98,71 @@ tr.r-late td.num button:not(.zero):not(.sel){color:var(--warn);font-weight:600}
 .chip{font:inherit;font-size:.86rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:4px 12px;border-radius:999px;cursor:pointer}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 
-/* detail */
-.detail{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px}
-.detail-table{min-width:880px;font-size:.88rem}
+/* list */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.detail-table{min-width:900px;font-size:.88rem}
 .detail-table th{text-align:left;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 .detail-table td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
 .detail-table td.c{white-space:nowrap;font-family:var(--mono);font-size:.84rem}
-.detail-table td.v{max-width:360px}
+.detail-table td.v{max-width:340px}
+.detail-table tbody tr{cursor:pointer}
+.detail-table tbody tr:hover td{background:var(--band)}
+.detail-table tbody tr.cur td{background:var(--accent-soft)}
+.idbtn{all:unset;cursor:pointer;font-family:var(--mono);font-size:.84rem;color:var(--accent);text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
 .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.78rem;font-weight:600;white-space:nowrap}
 .pill.done{background:var(--ok-soft);color:var(--ok)}
 .pill.run{background:var(--accent-soft);color:var(--run)}
 .pill.late{background:var(--warn-soft);color:var(--warn)}
+.pill.none{background:var(--band);color:var(--muted)}
 .empty{color:var(--muted);padding:12px 0}
 .note{font-size:.84rem;color:var(--muted);margin:0}
 .warnbox{font-size:.86rem;background:var(--warn-soft);color:var(--warn);border-radius:8px;padding:10px 14px}
+
+/* case card */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:24px}
+.card-head{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between}
+.nav{display:flex;gap:6px}
+.card-cols{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:start}
+.card-col{display:flex;flex-direction:column;gap:18px;min-width:0}
+.form{border-collapse:collapse;width:100%;table-layout:fixed}
+.form th,.form td{text-align:left;vertical-align:top;padding:10px 12px;min-height:44px}
+.form th{width:31%;font-weight:400;border-right:1.5px solid var(--rule)}
+.form tr{border-bottom:1.5px solid var(--line)}
+.form tr:first-child{border-top:1.5px solid var(--line)}
+.form tr.head th,.form tr.head td{font-weight:700}
+.form tbody tr:nth-child(even) > *{background:var(--field)}
+.form td{word-break:keep-all;overflow-wrap:anywhere}
+.opts{display:flex;flex-wrap:wrap;gap:4px 4px;align-items:center}
+.opt{font:inherit;font-size:.88rem;padding:2px 9px;border-radius:5px;border:1px solid transparent;color:var(--muted);background:transparent}
+.opt.on{color:var(--accent-ink);background:var(--accent);font-weight:600}
+button.opt{cursor:pointer;border-color:var(--line)}
+button.opt:hover:not(.on){background:var(--band);color:var(--ink)}
+.sep{color:var(--line)}
+.small{font-size:.82rem;color:var(--muted)}
+.tag{font-size:.74rem;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-left:4px;white-space:nowrap}
+.mono{font-family:var(--mono)}
+.status-late{color:var(--warn);font-weight:700}
+.status-ok{color:var(--run);font-weight:700}
+.status-done{color:var(--ok);font-weight:700}
+.extra{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:.88rem;margin:0}
+.extra dt{color:var(--muted)}
+.extra dd{margin:0}
+
+/* flow */
+.flow{display:flex;flex-direction:column;gap:0}
+.fstep{display:grid;grid-template-columns:minmax(0,34%) minmax(0,1fr);gap:0 14px;align-items:stretch}
+.fbox{border:1.5px solid var(--rule);background:var(--surface);padding:10px 12px;font-weight:700;display:flex;flex-direction:column;justify-content:center;gap:2px;text-align:center;min-height:56px}
+.fstep.done .fbox{background:var(--step);color:var(--step-ink)}
+.fstep.cur .fbox{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.fstep.cur .fbox .fdate{color:var(--accent-ink)}
+.fbox .fdate{font-family:var(--mono);font-weight:500;font-size:.8rem;color:var(--muted)}
+.fstep.done .fbox .fdate{color:var(--step-ink)}
+.finfo{border:1.5px dashed var(--line);padding:8px 12px;font-size:.84rem;color:var(--muted);display:flex;flex-direction:column;justify-content:center}
+.fstep.cur .finfo{border-color:var(--accent);color:var(--ink)}
+.farrow{display:grid;grid-template-columns:minmax(0,34%) minmax(0,1fr);gap:0 14px;font-size:.82rem;color:var(--muted);padding:3px 0}
+.farrow span:first-child{text-align:center}
+@media (max-width:820px){.card-cols{grid-template-columns:1fr}}
+@media (max-width:600px){.fstep{grid-template-columns:1fr}.finfo{border-top:0}.farrow{grid-template-columns:auto 1fr;gap:0 8px}.farrow span:first-child{text-align:left}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -115,7 +170,7 @@ tr.r-late td.num button:not(.zero):not(.sel){color:var(--warn);font-weight:600}
   <header class="top">
     <div>
       <h1>위반건축물 관리현황</h1>
-      <p class="sub">연도별 위반건축물 조치상황 엑셀을 올리면 연도·행정동별 진행, 종결, 기간경과 건수를 집계합니다.</p>
+      <p class="sub">연도별 위반건축물 조치상황 엑셀을 올리면 연도·행정동별 건수와 건별 관리카드를 만듭니다.</p>
     </div>
   </header>
 
@@ -141,11 +196,12 @@ tr.r-late td.num button:not(.zero):not(.sel){color:var(--warn);font-weight:600}
       <div class="settings">
         <label for="lateBasis">기간경과 기준
           <select id="lateBasis">
-            <option value="occur">발생일로부터</option>
-            <option value="action">최근 조치일로부터</option>
+            <option value="deadline">현재 단계 조치기한이 지난 건</option>
+            <option value="occur">발생일로부터 N개월 넘게 미종결</option>
+            <option value="action">최근 조치일로부터 N개월 넘게 미종결</option>
           </select>
         </label>
-        <label for="lateMonths"><input type="number" id="lateMonths" min="1" max="120" value="12"> 개월 넘게 미종결</label>
+        <label for="lateMonths" id="monthsWrap">N = <input type="number" id="lateMonths" min="1" max="120" value="12"> 개월</label>
       </div>
     </div>
     <div class="scroll"><table class="year-table" id="yearTable"></table></div>
@@ -161,19 +217,21 @@ tr.r-late td.num button:not(.zero):not(.sel){color:var(--warn);font-weight:600}
     <div id="unmatched"></div>
   </section>
 
-  <section class="detail" id="detail" aria-live="polite">
+  <section class="panel" id="detail" aria-live="polite">
     <div class="section-head">
       <h2 id="detailTitle">건별 목록</h2>
-      <input type="search" id="q" placeholder="소재지·위반내용 검색" aria-label="목록 검색">
+      <input type="search" id="q" placeholder="관리번호·소재지·위반내용 검색" aria-label="목록 검색">
     </div>
-    <div class="scroll" id="detailBody"><p class="empty">위 표의 숫자를 누르면 해당하는 건이 여기에 나옵니다.</p></div>
+    <div class="scroll" id="detailBody"></div>
   </section>
+
+  <section class="card" id="card" aria-live="polite"></section>
 </div>
 
 <script>
 (function(){
 'use strict';
-const STORE='vbm-records-v1', SETTINGS='vbm-settings-v1';
+const STORE='vbm-records-v2', OLD_STORE='vbm-records-v1', SETTINGS='vbm-settings-v2', OVR='vbm-overrides-v1';
 const BASE_YEARS=[2018,2019,2020,2021,2022,2023,2024,2025,2026];
 const GROUPS=[
   ['일도동','건입동','아라동','이도동','외도동','이호동','도두동'],
@@ -188,24 +246,42 @@ const RULES=[
   [/^(외도|내도|도평)/,'외도동'],[/^이호/,'이호동'],[/^도두/,'도두동'],
   [/^애월/,'애월'],[/^한림/,'한림'],[/^한경/,'한경'],[/^조천/,'조천'],[/^구좌/,'구좌'],[/^추자/,'추자'],[/^우도/,'우도'],
 ];
-const ACTION_HEADS=['사전통지','1차명령','2차명령','3차명령','부과일자','시정명령','재부과예고','재부과','표기일','해제일','철거','추인','완료일'];
+// 행정처분 단계: 엑셀 처분상황 열 ↔ 처리 흐름표의 기간
+const STAGES=[
+  {key:'pre', name:'행정처분 사전통지', short:'사전통지', days:30, law:'행정절차법 제21조', term:'사전통지 기간 30일 이상', m:(t,s)=>s.startsWith('사전통지')},
+  {key:'c1',  name:'1차 시정명령', short:'1차 시정', days:30, law:'건축법 제79조(위반건축물등에 대한 조치)', term:'계고기간 30일 이상', m:(t,s)=>s.startsWith('1차명령')},
+  {key:'c2',  name:'2차 시정명령', short:'2차 시정', days:30, law:'건축법 제79조(위반건축물등에 대한 조치)', term:'계고기간 30일 이상', m:(t,s)=>s.startsWith('2차명령')},
+  {key:'c3',  name:'최종 시정명령 및 이행강제금 부과예고', short:'최종 시정', days:30, law:'건축법 제80조(이행강제금)', term:'계고기간 30일 이상', m:(t,s)=>s.startsWith('3차명령')},
+  {key:'fine',name:'이행강제금 부과', short:'이행강제금 부과', days:14, law:'건축법 제80조(이행강제금)', term:'납부기간 14일', m:(t,s)=>s.startsWith('부과일자')},
+  {key:'rc',  name:'재부과 시정명령', short:'재부과 시정', days:30, law:'건축법 제79조', term:'계고기간 30일 이상', m:(t,s)=>t.startsWith('처분상황(재부과)')&&s.startsWith('시정명령')},
+  {key:'rn',  name:'이행강제금 재부과 예고', short:'재부과 예고', days:30, law:'건축법 제80조', term:'계고기간 30일 이상', m:(t,s)=>s.startsWith('재부과예고')},
+  {key:'rf',  name:'이행강제금 재부과', short:'재부과', days:14, law:'건축법 제80조', term:'납부기간 14일', m:(t,s)=>s==='재부과'},
+];
+const MAIN_TYPES=['pre','c1','c2','c3','fine'];
+const DETECT=['관련기관(부서) 통보','신문고','진정서','전화'];
+const USES=['주거용','상업용','창고시설','기타'];
+const ACTS=['신축','증축','용도변경','대수선','기타'];
 
 const $=id=>document.getElementById(id);
-let records=[];   // {year,no,dong,loc,lot,content,occur,lastAction,closed,status,note,file}
-let sources={};   // year -> file name
-let view={year:'all',sel:null};
-let settings={basis:'occur',months:12};
+let records=[], sources={}, overrides={};
+let view={year:'all',sel:null,caseId:null,stage:null};
+let settings={basis:'deadline',months:12};
+let needReupload=false;
 
 function load(){
-  try{const r=JSON.parse(localStorage.getItem(STORE)||'null'); if(r){records=r.records||[];sources=r.sources||{};}}catch(e){}
+  try{const r=JSON.parse(localStorage.getItem(STORE)||'null'); if(r){records=r.records||[];sources=r.sources||{};}
+      else if(localStorage.getItem(OLD_STORE)) needReupload=true;}catch(e){}
   try{const s=JSON.parse(localStorage.getItem(SETTINGS)||'null'); if(s) settings=Object.assign(settings,s);}catch(e){}
+  try{overrides=JSON.parse(localStorage.getItem(OVR)||'{}')||{};}catch(e){overrides={};}
 }
 function save(){
-  try{localStorage.setItem(STORE,JSON.stringify({records,sources}));}catch(e){}
+  try{localStorage.setItem(STORE,JSON.stringify({records,sources}));localStorage.removeItem(OLD_STORE);}catch(e){}
   try{localStorage.setItem(SETTINGS,JSON.stringify(settings));}catch(e){}
+  try{localStorage.setItem(OVR,JSON.stringify(overrides));}catch(e){}
 }
 
 const norm=v=>v==null?'':String(v).replace(/\s+/g,'');
+const txt=v=>v==null?'':String(v).trim();
 function toAdmin(raw){
   let s=String(raw||'').replace(/\s+/g,' ').trim().replace(/^(제주특별자치도|제주도)\s*/,'').replace(/^제주시\s*/,'');
   if(!s) return '미분류';
@@ -217,7 +293,7 @@ function parseDate(v){
   if(v==null||v==='') return null;
   if(v instanceof Date && !isNaN(v)) return new Date(v.getFullYear(),v.getMonth(),v.getDate()).getTime();
   const s=String(v).trim();
-  const m=s.match(/^(\d{2}|\d{4})\s*[.\-\/년]\s*(\d{1,2})\s*[.\-\/월]\s*(\d{1,2})/);
+  const m=s.match(/(\d{2}|\d{4})\s*[.\-\/년]\s*(\d{1,2})\s*[.\-\/월]\s*(\d{1,2})/);
   if(m){
     let y=+m[1]; if(y<100) y+=2000;
     const mo=+m[2], d=+m[3];
@@ -226,36 +302,72 @@ function parseDate(v){
   return null;
 }
 const fmt=t=>{if(t==null)return '';const d=new Date(t);return String(d.getFullYear()).slice(2)+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0');};
+const fmtLong=t=>{if(t==null)return '';const d=new Date(t);return d.getFullYear()+'. '+(d.getMonth()+1)+'. '+d.getDate()+'.';};
+const addDays=(t,n)=>{const d=new Date(t);d.setDate(d.getDate()+n);return d.getTime();};
+const today=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();};
 
 function findHeader(rows){
   for(let i=0;i<Math.min(rows.length,30);i++){
-    const r=rows[i]||[];
-    const names=r.map(norm);
+    const names=(rows[i]||[]).map(norm);
     if(names.includes('연번') && names.some(n=>n.startsWith('소재지'))) return i;
   }
   return -1;
 }
 function yearOf(text){const m=String(text||'').match(/(20\d{2})/);return m?+m[1]:null;}
 
+function classifyUse(useCol,content){
+  const u=norm(useCol);
+  if(/주택|주거/.test(u)) return '주거용';
+  if(/상업|근생/.test(u)) return '상업용';
+  if(/^창/.test(u)) return '창고시설';
+  if(u) return '기타';
+  const c=norm(content);
+  if(/주택|다가구|다세대|단독|연립|아파트/.test(c)) return '주거용';
+  if(/창고/.test(c)) return '창고시설';
+  if(/근생|근린|숙박|판매|업무|사무|음식|휴게/.test(c)) return '상업용';
+  return c?'기타':'';
+}
+function classifyActs(content){
+  const c=norm(content); const a=[];
+  if(/무신|신축/.test(c)) a.push('신축');
+  if(/무증|증축/.test(c)) a.push('증축');
+  if(/용도변경|용변/.test(c)) a.push('용도변경');
+  if(/대수선/.test(c)) a.push('대수선');
+  if(!a.length&&c) a.push('기타');
+  return a;
+}
+function guessDetect(note){
+  const n=norm(note);
+  if(/신문고/.test(n)) return '신문고';
+  if(/전화/.test(n)) return '전화';
+  if(/진정/.test(n)) return '진정서';
+  if(/통보|이기|소방|과-?\d|과$/.test(n)) return '관련기관(부서) 통보';
+  return '';
+}
+
 function parseSheet(ws,sheetName,fileName){
   const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
   const h=findHeader(rows); if(h<0) return null;
   const top=rows[h].map(norm), sub=(rows[h+1]||[]).map(norm);
   const width=Math.max(top.length,sub.length);
-  // propagate merged main headers to the right
   const main=[]; let last='';
   for(let c=0;c<width;c++){ if(top[c]) last=top[c]; main[c]=top[c]||(sub[c]?last:''); }
   const col=pred=>{for(let c=0;c<width;c++) if(pred(top[c]||'',sub[c]||'',main[c]||'')) return c; return -1;};
-  const cNo=col(t=>t==='연번');
-  const cLoc=col(t=>t.startsWith('소재지'));
-  const cOccur=col(t=>t.startsWith('발생일'));
-  const cClosed=col(t=>t.startsWith('종결여부'));
-  const cStatus=col(t=>t.startsWith('진행상황'));
-  const cContent=col(t=>t.startsWith('위반내용'));
-  const cNote=col(t=>t.startsWith('비고'));
-  const cDone=col(t=>t.startsWith('완료일'));
-  const actionCols=[];
-  for(let c=0;c<width;c++){ if(ACTION_HEADS.some(a=>(sub[c]||'').startsWith(a)||(top[c]||'').startsWith(a))) actionCols.push(c); }
+  const C={
+    no:col(t=>t==='연번'), loc:col(t=>t.startsWith('소재지')), jimok:col(t=>t.startsWith('지목')),
+    owner:col(t=>t.startsWith('소유자')||t.startsWith('행위자')), content:col(t=>t.startsWith('위반내용')),
+    use:col(t=>t.startsWith('용도')), vtype:col(t=>t.startsWith('위반유형')), occur:col(t=>t.startsWith('발생일')),
+    paid:col((t,s)=>s.startsWith('납부여부')), accuse:col(t=>t==='고발'),
+    mark:col((t,s,m)=>m.startsWith('대장정리')&&s.startsWith('표기')), unmark:col((t,s,m)=>m.startsWith('대장정리')&&s.startsWith('해제')),
+    demol:col((t,s,m)=>m.startsWith('완료일')&&s.startsWith('철거')), ratify:col((t,s,m)=>m.startsWith('완료일')&&s.startsWith('추인')),
+    doneCol:col(t=>t.startsWith('완료일')),
+    closed:col(t=>t.startsWith('종결여부')), status:col(t=>t.startsWith('진행상황')), note:col(t=>t.startsWith('비고')),
+    notice:col(t=>t.startsWith('공시송달')), ext:col(t=>t.startsWith('의견제출')),
+  };
+  const stageCol={};
+  for(const st of STAGES){stageCol[st.key]=col((t,s,m)=>st.m(m,s));}
+  const amtOf=k=>{const c=stageCol[k]; if(c<0) return -1; for(const d of [1,2]){ if((sub[c+d]||'').startsWith('금액')) return c+d; } return -1;};
+  const amtCol={fine:amtOf('fine'),rn:amtOf('rn'),rf:amtOf('rf')};
 
   let sheetYear=yearOf(sheetName);
   if(!sheetYear) for(let i=0;i<h&&!sheetYear;i++) for(const v of rows[i]||[]){ if(yearOf(v)){sheetYear=yearOf(v);break;} }
@@ -263,32 +375,77 @@ function parseSheet(ws,sheetName,fileName){
 
   const out=[];
   const start=sub.some(Boolean)?h+2:h+1;
+  const g=(r,c)=>c>=0?r[c]:null;
   for(let i=start;i<rows.length;i++){
     const r=rows[i]||[];
-    const no=r[cNo];
+    const no=g(r,C.no);
     if(no==null||no===''||isNaN(Number(no))) continue;
-    const occur=cOccur>=0?parseDate(r[cOccur]):null;
-    let lastAction=null;
-    for(const c of actionCols){const t=parseDate(r[c]); if(t!=null&&(lastAction==null||t>lastAction)) lastAction=t;}
-    const closedTxt=cClosed>=0?norm(r[cClosed]):'';
-    const statusTxt=cStatus>=0?norm(r[cStatus]):'';
+    const occur=parseDate(g(r,C.occur));
+    const stages={};
+    for(const st of STAGES){const t=parseDate(g(r,stageCol[st.key])); if(t!=null) stages[st.key]=t;}
+    const closedTxt=norm(g(r,C.closed)), statusTxt=norm(g(r,C.status));
     const closed= closedTxt ? closedTxt==='종결' : statusTxt==='종결';
     const year=sheetYear||(occur?new Date(occur).getFullYear():null);
     if(!year) continue;
-    const loc=cLoc>=0&&r[cLoc]!=null?String(r[cLoc]).trim():'';
+    const loc=txt(g(r,C.loc)), content=txt(g(r,C.content)), note=txt(g(r,C.note));
+    const amt={}; for(const k in amtCol){const v=g(r,amtCol[k]); if(v!=null&&v!=='') amt[k]=typeof v==='number'?v.toLocaleString('ko-KR')+'원':txt(v);}
+    const demolT=parseDate(g(r,C.demol)), ratifyT=parseDate(g(r,C.ratify));
     out.push({
-      year,no:Number(no),loc,dong:toAdmin(loc),
-      lot:cLoc>=0&&r[cLoc+1]!=null?String(r[cLoc+1]).trim():'',
-      content:cContent>=0&&r[cContent]!=null?String(r[cContent]).trim():'',
-      occur,lastAction,closed,
-      status:closedTxt==='일부종결'?'일부종결':(statusTxt||closedTxt||''),
-      done:cDone>=0?fmt(parseDate(r[cDone])):'',
-      note:cNote>=0&&r[cNote]!=null?String(r[cNote]).trim():'',
-      file:fileName
+      year,no:Number(no),loc,dong:toAdmin(loc),lot:C.loc>=0?txt(r[C.loc+1]):'',
+      jimok:txt(g(r,C.jimok)),owner:txt(g(r,C.owner)),content,
+      useRaw:txt(g(r,C.use)),use:classifyUse(g(r,C.use),content),acts:classifyActs(content),article:txt(g(r,C.vtype)),
+      occur,stages,amt,paid:txt(g(r,C.paid)),accuse:txt(g(r,C.accuse)),
+      markRaw:txt(g(r,C.mark)),markT:parseDate(g(r,C.mark)),unmarkT:parseDate(g(r,C.unmark)),
+      demolT,ratifyT,doneT:demolT??ratifyT??parseDate(g(r,C.doneCol)),
+      closed,status:closedTxt==='일부종결'?'일부종결':(statusTxt||closedTxt||''),
+      note,notice:txt(g(r,C.notice)),extT:parseDate(g(r,C.ext)),extRaw:txt(g(r,C.ext)),
+      detect:guessDetect(note),file:fileName
     });
   }
   return out;
 }
+
+/* ---- 단계·기한 계산 ---- */
+function stageInfo(r,key){
+  const st=STAGES.find(s=>s.key===key), t=r.stages[key];
+  if(t==null) return {st,date:null,due:null,extended:false};
+  let due=addDays(t,st.days), extended=false;
+  return {st,date:t,due,extended};
+}
+function current(r){
+  let best=null;
+  for(const st of STAGES){const t=r.stages[st.key]; if(t!=null&&(best==null||t>=r.stages[best])) best=st.key;}
+  if(!best) return {key:null,label:r.closed?'종결':'조치 전(접수)',date:null,due:null,extended:false};
+  const info=stageInfo(r,best);
+  // 의견제출(시정기한 연장) 날짜가 현재 단계 기한보다 늦으면 연장된 기한으로 봅니다.
+  if(r.extT!=null&&r.extT>info.due){info.due=r.extT;info.extended=true;}
+  return {key:best,label:info.st.short,date:info.date,due:info.due,extended:info.extended};
+}
+function lateDays(r){
+  if(r.closed) return null;
+  const cur=current(r); if(cur.due==null) return null;
+  return Math.floor((today()-cur.due)/864e5);
+}
+function isLate(r){
+  if(r.closed) return false;
+  if(settings.basis==='deadline'){const d=lateDays(r); return d!=null&&d>0;}
+  const lastAction=current(r).date;
+  const base=settings.basis==='action'?(lastAction??r.occur):r.occur;
+  if(base==null) return false;
+  const lim=new Date(base); lim.setMonth(lim.getMonth()+Number(settings.months||12));
+  return lim.getTime()<today();
+}
+function caseId(r){
+  const o=overrides[r.year+'-'+r.no]||{};
+  const src=o.src||(/소방/.test(r.note)?'소방':'민원');
+  return src+'-'+r.year+'-'+String(r.no).padStart(3,'0');
+}
+
+const METRICS=[
+  {key:'run',label:'진행건수',cls:'r-run',test:r=>!r.closed},
+  {key:'done',label:'종결건수',cls:'r-done',test:r=>r.closed},
+  {key:'late',label:'기간경과',cls:'r-late',test:isLate},
+];
 
 async function handleFiles(list){
   const msg=$('msg'); msg.className='msg'; msg.textContent='읽는 중…';
@@ -306,39 +463,23 @@ async function handleFiles(list){
       done.push(f.name+' ('+years.sort().join(', ')+'년 '+got.length+'건)');
     }catch(e){fails.push(f.name);}
   }
-  save(); render();
+  needReupload=false; save(); render();
   const parts=[];
   if(done.length) parts.push('불러옴: '+done.join(' · '));
   if(fails.length){parts.push('읽지 못함: '+fails.join(', ')+' — "연번"과 "소재지" 머리글이 있는 시트를 찾지 못했습니다.'); msg.className='msg err';}
   msg.textContent=parts.join('  ');
 }
 
-const today=()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate()).getTime();};
-function isLate(r){
-  if(r.closed) return false;
-  const base=settings.basis==='action'?(r.lastAction??r.occur):r.occur;
-  if(base==null) return false;
-  const lim=new Date(base); lim.setMonth(lim.getMonth()+Number(settings.months||12));
-  return lim.getTime()<today();
-}
-const METRICS=[
-  {key:'run',label:'진행건수',cls:'r-run',test:r=>!r.closed},
-  {key:'done',label:'종결건수',cls:'r-done',test:r=>r.closed},
-  {key:'late',label:'기간경과',cls:'r-late',test:isLate},
-];
-
 function cellBtn(n,selKey,title){
   const sel=view.sel&&view.sel.key===selKey;
   return `<td class="num"><button type="button" data-sel="${selKey}" class="${n?'':'zero'}${sel?' sel':''}" aria-label="${title} ${n}건">${n}</button></td>`;
 }
-function years(){
-  const ys=new Set(BASE_YEARS); records.forEach(r=>ys.add(r.year));
-  return [...ys].sort((a,b)=>a-b);
-}
+function years(){const ys=new Set(BASE_YEARS); records.forEach(r=>ys.add(r.year)); return [...ys].sort((a,b)=>a-b);}
 
 function renderFiles(){
   const ys=Object.keys(sources).map(Number).filter(y=>records.some(r=>r.year===y)).sort();
   $('files').innerHTML=ys.map(y=>`<span class="file"><b>${y}</b>${esc(sources[y])} · ${records.filter(r=>r.year===y).length}건<button type="button" data-rm="${y}" aria-label="${y}년 자료 삭제" title="삭제">×</button></span>`).join('');
+  if(needReupload&&!records.length){$('msg').className='msg err';$('msg').textContent='관리카드 기능이 추가되어 저장 형식이 바뀌었습니다. 엑셀 파일을 한 번 더 올려 주세요.';}
 }
 function renderYearTable(){
   const ys=years();
@@ -377,40 +518,163 @@ function renderDongs(){
   const um=[...new Set(pool.filter(r=>r.dong==='미분류'&&r.loc).map(r=>r.loc))];
   $('unmatched').innerHTML=um.length?`<div class="warnbox">행정동을 정하지 못한 소재지: ${um.map(esc).join(', ')}</div>`:'';
 }
-function selected(){
-  if(!view.sel) return null;
-  const p=view.sel.key.split('|'), m=METRICS.find(x=>x.key===p[p.length-1]);
+function listRows(){
+  const q=$('q').value.trim();
   let rows, title;
-  if(p[0]==='y'){
-    rows=records.filter(r=>(p[1]==='all'||r.year===+p[1])&&m.test(r));
-    title=(p[1]==='all'?'전체 연도':p[1]+'년')+' · '+m.label;
-  }else{
-    rows=records.filter(r=>(p[1]==='all'||r.year===+p[1])&&r.dong===p[2]&&m.test(r));
-    title=(p[1]==='all'?'전체 연도':p[1]+'년')+' · '+p[2]+' · '+m.label;
-  }
+  if(view.sel){
+    const p=view.sel.key.split('|'), m=METRICS.find(x=>x.key===p[p.length-1]);
+    if(p[0]==='y'){rows=records.filter(r=>(p[1]==='all'||r.year===+p[1])&&m.test(r)); title=(p[1]==='all'?'전체 연도':p[1]+'년')+' · '+m.label;}
+    else{rows=records.filter(r=>(p[1]==='all'||r.year===+p[1])&&r.dong===p[2]&&m.test(r)); title=(p[1]==='all'?'전체 연도':p[1]+'년')+' · '+p[2]+' · '+m.label;}
+  }else if(q){rows=records; title='전체 검색';}
+  else return null;
+  if(q) rows=rows.filter(r=>(caseId(r)+' '+r.loc+' '+r.lot+' '+r.content+' '+r.note+' '+r.dong).includes(q));
+  rows=rows.slice().sort((a,b)=>a.year-b.year||a.no-b.no);
   return {rows,title};
 }
-function renderDetail(){
-  const s=selected();
-  if(!s){$('detailTitle').textContent='건별 목록';$('detailBody').innerHTML='<p class="empty">위 표의 숫자를 누르면 해당하는 건이 여기에 나옵니다.</p>';return;}
-  const q=$('q').value.trim();
-  let rows=s.rows;
-  if(q) rows=rows.filter(r=>(r.loc+' '+r.lot+' '+r.content+' '+r.note+' '+r.dong).includes(q));
-  rows=rows.slice().sort((a,b)=>a.year-b.year||a.no-b.no);
+function statusPill(r){
+  if(r.closed) return '<span class="pill done">종결</span>';
+  const cur=current(r);
+  return `<span class="pill ${isLate(r)?'late':(cur.key?'run':'none')}">${esc(cur.label)}</span>`;
+}
+function dueText(r){
+  if(r.closed) return '';
+  const d=lateDays(r); if(d==null) return '';
+  return d>0?`<span class="status-late">${d}일 경과</span>`:`<span class="status-ok">D-${-d}</span>`;
+}
+function renderList(){
+  const s=listRows();
+  if(!s){$('detailTitle').textContent='건별 목록';$('detailBody').innerHTML=`<p class="empty">${records.length?'위 표의 숫자를 누르거나 관리번호·주소로 검색하면 해당하는 건이 여기에 나옵니다. 줄을 누르면 아래에 관리카드가 열립니다.':'엑셀 파일을 올리면 건별 목록과 관리카드를 볼 수 있습니다.'}</p>`;return;}
+  const rows=s.rows;
   $('detailTitle').textContent=s.title+' — '+rows.length+'건';
   if(!rows.length){$('detailBody').innerHTML='<p class="empty">해당하는 건이 없습니다.</p>';return;}
-  const t=today();
-  const basis=r=>settings.basis==='action'?(r.lastAction??r.occur):r.occur;
-  $('detailBody').innerHTML='<table class="detail-table"><thead><tr><th>연도</th><th>연번</th><th>행정동</th><th>소재지</th><th>위반내용</th><th>발생일</th><th>최근 조치일</th><th>상태</th><th>경과</th><th>비고</th></tr></thead><tbody>'+
+  $('detailBody').innerHTML='<table class="detail-table"><thead><tr><th>관리번호</th><th>행정동</th><th>소재지</th><th>위반내용</th><th>접수일</th><th>현재 단계</th><th>조치일자</th><th>조치기한</th><th>경과</th></tr></thead><tbody>'+
     rows.map(r=>{
-      const late=isLate(r);
-      const pill=r.closed?'<span class="pill done">종결</span>':`<span class="pill ${late?'late':'run'}">${esc(r.status||'진행')}</span>`;
-      const b=basis(r); const days=(!r.closed&&b!=null)?Math.floor((t-b)/864e5)+'일':'';
-      return `<tr><td class="c">${r.year}</td><td class="c">${r.no}</td><td>${esc(r.dong)}</td><td style="white-space:nowrap">${esc(r.loc)} ${esc(r.lot)}</td><td class="v">${esc(r.content)}</td><td class="c">${fmt(r.occur)}</td><td class="c">${fmt(r.lastAction)}</td><td>${pill}</td><td class="c">${days}</td><td class="v">${esc(r.note)}</td></tr>`;
+      const id=r.year+'-'+r.no, cur=current(r);
+      return `<tr data-case="${id}" class="${view.caseId===id?'cur':''}"><td><button type="button" class="idbtn" data-case="${id}">${esc(caseId(r))}</button></td><td>${esc(r.dong)}</td><td style="white-space:nowrap">${esc(r.loc)} ${esc(r.lot)}</td><td class="v">${esc(r.content)}</td><td class="c">${fmt(r.occur)}</td><td>${statusPill(r)}</td><td class="c">${fmt(cur.date)}</td><td class="c">${r.closed?'':fmt(cur.due)}</td><td class="c">${dueText(r)}</td></tr>`;
     }).join('')+'</tbody></table>';
 }
+
+/* ---- 관리카드 ---- */
+function opts(list,on,field){
+  return '<div class="opts">'+list.map((o,i)=>{
+    const sel=Array.isArray(on)?on.includes(o):on===o;
+    const el=field?`<button type="button" class="opt${sel?' on':''}" data-ovr="${field}" data-val="${esc(o)}" aria-pressed="${sel}">${esc(o)}</button>`:`<span class="opt${sel?' on':''}">${esc(o)}</span>`;
+    return (i?'<span class="sep">/</span>':'')+el;
+  }).join('')+'</div>';
+}
+function renderCard(){
+  const card=$('card');
+  const r=records.find(x=>x.year+'-'+x.no===view.caseId);
+  if(!r){card.innerHTML=`<div class="card-head"><h2>건별 관리카드</h2></div><p class="empty">위 목록에서 한 건을 누르면 기본정보와 행정조치 현황이 여기에 나옵니다.</p>`;return;}
+  const key=r.year+'-'+r.no, o=overrides[key]||{};
+  const cur=current(r), ld=lateDays(r);
+  const src=o.src||(/소방/.test(r.note)?'소방':'민원');
+  const detect=o.detect||r.detect;
+  const detectNote=o.detect?'':(r.detect?'<span class="tag">비고에서 추정</span>':'<span class="tag">엑셀에 없음 · 눌러서 지정</span>');
+  let state;
+  if(r.closed) state=`<span class="status-done">종결</span>${r.doneT?` <span class="small">(${fmt(r.doneT)}${r.demolT?' 철거':r.ratifyT?' 추인':''})</span>`:''}`;
+  else if(ld==null) state='<span class="small">조치 전이라 기한이 없습니다</span>';
+  else state=opts(['미도래','경과'],ld>0?'경과':'미도래')+`<span class="small">${ld>0?ld+'일 지남':'기한까지 '+(-ld)+'일'}</span>`;
+  const mark=r.markT?`표기 <span class="mono">${fmt(r.markT)}</span>`:(r.markRaw?`표기 (${esc(r.markRaw)})`:'');
+  const unmark=r.unmarkT?` · 해제 <span class="mono">${fmt(r.unmarkT)}</span>`:'';
+  // 조치유형 선택
+  const types=[...MAIN_TYPES,...['rc','rn','rf'].filter(k=>r.stages[k]!=null)];
+  if(!view.stage||!types.includes(view.stage)) view.stage=(cur.key&&types.includes(cur.key))?cur.key:'pre';
+  const si=stageInfo(r,view.stage);
+  const typeBtns='<div class="opts">'+types.map((k,i)=>{const st=STAGES.find(s=>s.key===k);const on=k===view.stage;return (i?'<span class="sep">/</span>':'')+`<button type="button" class="opt${on?' on':''}" data-stage="${k}" aria-pressed="${on}"${r.stages[k]!=null?'':' style="border-style:dashed" title="엑셀에 날짜 없음"'}>${st.short}</button>`;}).join('')+'</div>';
+  const extras=[];
+  if(r.amt.fine) extras.push(['이행강제금',r.amt.fine+(r.paid?` (${esc(r.paid)})`:'')]);
+  else if(r.paid) extras.push(['납부여부',esc(r.paid)]);
+  if(r.amt.rn||r.amt.rf) extras.push(['재부과 금액',esc([r.amt.rn,r.amt.rf].filter(Boolean).join(' / '))]);
+  if(r.accuse) extras.push(['고발',esc(r.accuse)]);
+  if(r.notice) extras.push(['공시송달',esc(r.notice)]);
+  if(r.extRaw) extras.push(['의견제출(기한연장)',esc(r.extRaw)]);
+  if(r.note) extras.push(['비고',esc(r.note)]);
+  extras.push(['엑셀 진행상황',esc(r.status||'—')]);
+
+  card.innerHTML=`
+  <div class="card-head">
+    <h2>건별 관리카드 · <span class="mono">${esc(caseId(r))}</span></h2>
+    <div class="nav"><button type="button" class="btn" data-nav="-1">이전 건</button><button type="button" class="btn" data-nav="1">다음 건</button></div>
+  </div>
+  <div class="card-cols">
+    <div class="card-col">
+      <h3>기본정보</h3>
+      <table class="form"><tbody>
+        <tr class="head"><th scope="row">관리번호</th><td><div class="opts">${['민원','소방'].map((v,i)=>(i?'<span class="sep">/</span>':'')+`<button type="button" class="opt${src===v?' on':''}" data-ovr="src" data-val="${v}" aria-pressed="${src===v}">${v}</button>`).join('')}<span class="mono" style="margin-left:6px">– ${r.year} – ${String(r.no).padStart(3,'0')}</span></div></td></tr>
+        <tr><th scope="row">주소</th><td>제주시 ${esc(r.loc)} ${esc(r.lot)}${r.jimok?` <span class="tag">지목 ${esc(r.jimok)}</span>`:''}</td></tr>
+        <tr><th scope="row">소유자/행위자</th><td><input type="text" id="ownerInput" data-key="${key}" value="${esc(o.owner??r.owner)}" placeholder="엑셀에 없음 · 직접 입력" aria-label="소유자/행위자" style="width:100%"></td></tr>
+        <tr><th scope="row">접수일</th><td class="mono">${fmt(r.occur)||'—'}</td></tr>
+        <tr><th scope="row">적발구분</th><td>${opts(DETECT,detect,'detect')}${detectNote}</td></tr>
+        <tr><th scope="row">용도</th><td>${opts(USES,r.use)}${r.useRaw?`<span class="tag">엑셀: ${esc(r.useRaw)}</span>`:''}</td></tr>
+        <tr><th scope="row">위반행위</th><td>${opts(ACTS,r.acts)}${r.article?`<span class="tag">${esc(r.article)}</span>`:''}${r.content?`<div class="small" style="margin-top:6px">${esc(r.content)}</div>`:''}</td></tr>
+        <tr><th scope="row">현재단계</th><td>${r.closed?'종결':esc(cur.label)}</td></tr>
+        <tr><th scope="row">건축물대장 표기</th><td>${mark?mark+unmark:'미표기'}</td></tr>
+      </tbody></table>
+    </div>
+    <div class="card-col">
+      <h3>행정조치 현황</h3>
+      <table class="form"><tbody>
+        <tr class="head"><th scope="row">현재 단계</th><td>${r.closed?'종결':esc(cur.key?STAGES.find(s=>s.key===cur.key).name:cur.label)}</td></tr>
+        <tr><th scope="row">조치일자</th><td class="mono">${fmt(cur.date)||'—'}</td></tr>
+        <tr><th scope="row">조치기한</th><td><span class="mono">${fmt(cur.due)||'—'}</span>${cur.extended?'<span class="tag">의견제출로 연장</span>':''}</td></tr>
+        <tr><th scope="row">경과 상태</th><td>${state}</td></tr>
+      </tbody></table>
+      <table class="form"><tbody>
+        <tr class="head"><th scope="row">조치유형 선택</th><td>${typeBtns}</td></tr>
+        <tr><th scope="row">조치일자</th><td class="mono">${si.date!=null?fmt(si.date):'<span class="small">기록 없음</span>'}</td></tr>
+        <tr><th scope="row">조치기한</th><td>${si.due!=null?`<span class="mono">${fmt(si.due)}</span> <span class="small">(${si.st.term})</span>`:`<span class="small">${si.st.term}</span>`}</td></tr>
+      </tbody></table>
+      <dl class="extra">${extras.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
+    </div>
+  </div>
+  <div class="card-col">
+    <h3>처리 흐름</h3>
+    ${renderFlow(r,cur)}
+  </div>`;
+}
+function renderFlow(r,cur){
+  const paid=/납부/.test(r.paid);
+  const steps=[
+    {k:'pre',title:'행정처분 사전통지',info:['관련규정 : 행정절차법 제21조','사전통지 기간 : 30일 이상']},
+    {k:'c1',title:'시정명령 1차 시정명령',info:['관련규정 : 건축법 제79조(위반건축물등에 대한 조치)','계고기간 : 30일 이상'],arrow:'현장 확인 없이 시정명령'},
+    {k:'c2',title:'시정명령 2차 시정명령',info:['관련규정 : 건축법 제79조(위반건축물등에 대한 조치)','계고기간 : 30일 이상'],arrow:'현장 확인 없이 시정명령'},
+    {k:'c3',title:'최종 시정명령 및 이행강제금 부과예고',info:['관련규정 : 건축법 제80조(이행강제금)','계고기간 : 30일 이상'],arrow:'현장 확인 후 시정명령 및 이행강제금 부과 예고'},
+    {k:'fine',title:'이행강제금 부과 · 위반행위자 고발 조치',info:['관련규정 : 건축법 제80조(이행강제금) · 납부기간 14일','고발 : 건축법 제108조, 제110조, 제111조 / 형사소송법 제249조'],arrow:'최종 현장 확인',extra:[r.amt.fine,paid?'납부':'',r.accuse?'고발 '+r.accuse:''].filter(Boolean).join(' · ')},
+    {k:'collect',title:'이행강제금 납부 촉구 및 재산압류 예고',info:['관련규정 : 건축법 제80조 제7항, 지방행정제재·부과금의 징수 등에 관한 법률'],arrow:'이행강제금 체납 시'},
+    {k:'seize',title:'재산 압류',info:['압류대상 : 주거래은행 예금, 부동산 등'],arrow:'체납자 재산조회 (건축과 → 재산세과)'},
+  ];
+  const order=['pre','c1','c2','c3','fine'];
+  const curIdx=cur.key?order.indexOf(cur.key):-1;
+  let h='<div class="flow">';
+  steps.forEach((s,i)=>{
+    if(s.arrow) h+=`<div class="farrow"><span>↓</span><span>◀ ${s.arrow}</span></div>`;
+    const t=r.stages[s.k];
+    let cls='';
+    if(t!=null) cls=(!r.closed&&s.k===cur.key)?'cur':'done';
+    else if(order.includes(s.k)&&i<curIdx) cls='';
+    const date=t!=null?`<span class="fdate">${fmt(t)} · 기한 ${fmt(addDays(t,STAGES.find(x=>x.key===s.k).days))}</span>`:(s.k==='collect'||s.k==='seize'?'<span class="fdate">엑셀에 기록 열 없음</span>':'');
+    h+=`<div class="fstep ${cls}"><div class="fbox">${s.title}${date}</div><div class="finfo">${s.info.map(x=>'· '+esc(x)).join('<br>')}${s.extra?`<br><strong>${esc(s.extra)}</strong>`:''}</div></div>`;
+  });
+  const re=['rc','rn','rf'].filter(k=>r.stages[k]!=null);
+  if(re.length){
+    h+=`<div class="farrow"><span>↓</span><span>◀ 재부과</span></div>`;
+    re.forEach(k=>{const st=STAGES.find(s=>s.key===k);const cls=(!r.closed&&k===cur.key)?'cur':'done';
+      h+=`<div class="fstep ${cls}"><div class="fbox">${st.name}<span class="fdate">${fmt(r.stages[k])} · 기한 ${fmt(addDays(r.stages[k],st.days))}</span></div><div class="finfo">· 관련규정 : ${esc(st.law)}<br>· ${esc(st.term)}${r.amt[k]?'<br><strong>'+esc(r.amt[k])+'</strong>':''}</div></div>`;});
+  }
+  if(r.closed) h+=`<div class="farrow"><span>↓</span><span>◀ 종결</span></div><div class="fstep done"><div class="fbox">종결${r.doneT?`<span class="fdate">${fmt(r.doneT)}</span>`:''}</div><div class="finfo">${esc(r.note||'')}</div></div>`;
+  return h+'</div>';
+}
+
 function esc(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
-function render(){renderFiles();renderYearTable();renderChips();renderDongs();renderDetail();}
+function render(){
+  $('monthsWrap').hidden=settings.basis==='deadline';
+  renderFiles();renderYearTable();renderChips();renderDongs();renderList();renderCard();
+}
+function setOverride(key,field,val){
+  overrides[key]=Object.assign({},overrides[key],{[field]:val});
+  save();
+}
 
 // events
 $('pick').onclick=()=>$('file').click();
@@ -424,8 +688,9 @@ $('clear').onclick=()=>{
   if(!records.length) return;
   if(!clearArmed){clearArmed=true;$('clear').textContent='한 번 더 누르면 삭제';setTimeout(()=>{clearArmed=false;$('clear').textContent='전체 삭제';},3000);return;}
   clearArmed=false;$('clear').textContent='전체 삭제';
-  records=[];sources={};view.sel=null;save();render();$('msg').textContent='모든 자료를 지웠습니다.';
+  records=[];sources={};view.sel=null;view.caseId=null;save();render();$('msg').textContent='모든 자료를 지웠습니다.';
 };
+const smooth=()=>matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
 document.addEventListener('click',e=>{
   const rm=e.target.closest('[data-rm]');
   if(rm){const y=+rm.dataset.rm;records=records.filter(r=>r.year!==y);delete sources[y];view.sel=null;save();render();return;}
@@ -433,9 +698,22 @@ document.addEventListener('click',e=>{
   if(c){view.year=c.dataset.year==='all'?'all':+c.dataset.year;view.sel=null;render();return;}
   const b=e.target.closest('[data-sel]');
   if(b){const k=b.dataset.sel;view.sel=(view.sel&&view.sel.key===k)?null:{key:k};render();
-    if(view.sel) $('detail').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});}
+    if(view.sel) $('detail').scrollIntoView({behavior:smooth(),block:'start'});return;}
+  const cs=e.target.closest('[data-case]');
+  if(cs){view.caseId=cs.dataset.case;view.stage=null;renderList();renderCard();$('card').scrollIntoView({behavior:smooth(),block:'start'});return;}
+  const st=e.target.closest('[data-stage]');
+  if(st){view.stage=st.dataset.stage;renderCard();return;}
+  const ov=e.target.closest('[data-ovr]');
+  if(ov&&view.caseId){setOverride(view.caseId,ov.dataset.ovr,ov.dataset.val);renderList();renderCard();return;}
+  const nv=e.target.closest('[data-nav]');
+  if(nv){const s=listRows();const rows=s?s.rows:records.slice().sort((a,b)=>a.year-b.year||a.no-b.no);
+    const i=rows.findIndex(r=>r.year+'-'+r.no===view.caseId);const n=rows[i+Number(nv.dataset.nav)];
+    if(n){view.caseId=n.year+'-'+n.no;view.stage=null;renderList();renderCard();}}
 });
-$('q').addEventListener('input',renderDetail);
+document.addEventListener('change',e=>{
+  if(e.target.id==='ownerInput'){setOverride(e.target.dataset.key,'owner',e.target.value.trim());}
+});
+$('q').addEventListener('input',renderList);
 $('lateBasis').onchange=e=>{settings.basis=e.target.value;save();render();};
 $('lateMonths').oninput=e=>{const v=parseInt(e.target.value,10);if(v>0){settings.months=v;save();render();}};
 
